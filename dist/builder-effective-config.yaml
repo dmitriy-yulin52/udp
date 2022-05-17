@@ -1,0 +1,16 @@
+directories:
+  output: dist
+  buildResources: assets
+files:
+  - filter:
+      - build/**/*
+      - build/**/*
+      - node_modules/**/*
+extraMetadata:
+  main: build/electron/main.js
+publish:
+  provider: github
+  repo: electron-cra-example
+  owner: johndyer24
+extends: react-cra
+electronVersion: 18.2.3

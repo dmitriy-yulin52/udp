@@ -2,6 +2,19 @@
   "name": "my-app",
   "version": "0.1.0",
   "private": true,
+  "main": "src/electron/main.ts",
+  "homepage": "./",
+  "build": {
+    "files": [
+      "build/**/*",
+      "node_modules/**/*"
+    ],
+    "publish": {
+      "provider": "github",
+      "repo": "electron-cra-example",
+      "owner": "johndyer24"
+    }
+  },
   "dependencies": {
     "@testing-library/jest-dom": "^5.16.4",
     "@testing-library/react": "^13.2.0",
@@ -17,10 +30,14 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "electron": "electron .",
+    "start": "export BROWSER=none && react-scripts start",
+    "electron-dev": "ELECTRON_START_URL=http://localhost:3000 electron .",
+    "build-electron": "mkdir build/electron && cp -r electron/. build/electron",
+    "package": "electron-builder build --mac --win -c.extraMetadata.main=build/electron/main.js --publish never"
   },
   "eslintConfig": {
     "extends": [
@@ -39,5 +56,9 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "devDependencies": {
+    "electron": "^18.2.3",
+    "electron-builder": "^23.0.3"
   }
 }
