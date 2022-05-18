@@ -217,6 +217,420 @@ const typeCode2Class: Record<
 };
 
 
+export class FileOpen extends Message {
+    constructor(
+        public readonly fileName: string,
+        public readonly mode: number,
+        dst = 0,
+        src = 0
+    ) {
+        super(dst, src);
+    }
+
+    toString(): string {
+        return super.bin2String(
+            `filename="${this.fileName}", mode=${FileModeToString(this.mode)}`
+        );
+    }
+
+    payload(): Uint8Array {
+        const encoder: TextEncoder = new TextEncoder();
+        return new Uint8Array([...encoder.encode(this.fileName), 0, this.mode]);
+    }
+
+    getTypeCode(): number {
+        return MessageTypes.FILE_OPEN;
+    }
+
+    getTypeCodeAnswer(): number {
+        return MessageTypes.FILE_OPEN_RESPONSE;
+    }
+
+    static fromPayload(payload: Uint8Array, dst: number, src: number): FileOpen {
+        const name = payload.slice(0, -2);
+        const mode = payload[-1];
+        return new FileOpen(Message.convert_from_cp1251(name), mode, dst, src);
+    }
+}
+
+export enum FileError {
+    OK = 0,
+    DiskErr = 1,
+    IntErr = 2,
+    NotReady = 3,
+    NoFile = 4,
+    NoPath = 5,
+    InvalidName = 6,
+    Denied = 7,
+    Exist = 8,
+    InvalidObject = 9,
+    WriteProtected = 10,
+    InvalidDrive = 11,
+    NotEnabled = 12,
+    NoFileSystem = 13,
+    MKFSAborted = 14,
+    TimeOut = 15,
+    Locked = 16,
+    NotEnoughCore = 17,
+    TooManyOpenFiles = 18,
+    InvalidPosition = 128,
+}
+
+export const FileErrorToString = (error: number): string => {
+    const errorType = FileError[error];
+    if (errorType) {
+        return errorType;
+    } else {
+        return 'UNKNOWN';
+    }
+};
+
+export class FileOpenResponse extends Message {
+    constructor(
+        public readonly errorCode: number,
+        public readonly handle: number,
+        public readonly fileSize: number,
+        dst: number,
+        src: number
+    ) {
+        super(dst, src);
+    }
+
+    toString(): string {
+        if (this.errorCode !== FileError.OK) {
+            return super.bin2String(`"error=${FileErrorToString(this.errorCode)}"`);
+        } else {
+            return super.bin2String(
+                `"handle=0x${this.handle.toString(
+                    16
+                )}, size=${this.fileSize.toString()}"`
+            );
+        }
+    }
+
+    payload(): Uint8Array {
+        const buffer = new ArrayBuffer(6);
+        const view = new DataView(buffer);
+        view.setUint8(0, this.errorCode);
+        view.setUint8(1, this.handle);
+        view.setUint32(2, this.fileSize, true);
+        return this.view2uint8(view);
+    }
+
+    getTypeCode(): number {
+        return MessageTypes.FILE_OPEN_RESPONSE;
+    }
+
+    static fromPayload(
+        payload: Uint8Array,
+        dst: number,
+        src: number
+    ): FileOpenResponse {
+        const errorCode = payload[0];
+        // Message.getMessageError(errorCode);
+        const handle = payload[1];
+        const dataView = new DataView(payload.buffer, 2);
+        const fileSize = dataView.getUint32(0, true);
+        return new FileOpenResponse(errorCode, handle, fileSize, dst, src);
+    }
+}
+
+export class FileClose extends Message {
+    constructor(public readonly handle: number, dst = 0, src = 0) {
+        super(dst, src);
+    }
+
+    toString(): string {
+        return super.bin2String(`"handle=0x${this.handle.toString(16)}"`);
+    }
+
+    payload(): Uint8Array {
+        return new Uint8Array([this.handle]);
+    }
+
+    getTypeCode(): number {
+        return MessageTypes.FILE_CLOSE;
+    }
+
+    static fromPayload(payload: Uint8Array, dst: number, src: number): FileClose {
+        const handle = payload[0];
+        return new FileClose(handle, dst, src);
+    }
+}
+
+export class FileCloseResponse extends Message {
+    constructor(public readonly errorCode: number, dst: number, src: number) {
+        super(dst, src);
+    }
+
+    toString(): string {
+        if (this.errorCode !== FileError.OK) {
+            return super.bin2String(`"error=${FileErrorToString(this.errorCode)}"`);
+        } else {
+            return super.bin2String(null);
+        }
+    }
+
+    payload(): Uint8Array {
+        return new Uint8Array([this.errorCode]);
+    }
+
+    getTypeCode(): number {
+        return MessageTypes.FILE_CLOSE_RESPONSE;
+    }
+
+    static fromPayload(
+        payload: Uint8Array,
+        dst: number,
+        src: number
+    ): FileCloseResponse {
+        const errorCode = payload[0];
+        // Message.getMessageError(errorCode);
+        return new FileCloseResponse(errorCode, dst, src);
+    }
+}
+
+export class FileWrite extends Message {
+    constructor(
+        public readonly handle: number,
+        public readonly position: number,
+        public readonly data: Uint8Array,
+        dst = 0,
+        src = 0
+    ) {
+        super(dst, src);
+    }
+
+    toString(): string {
+        return super.bin2String(
+            `"handle=0x${this.handle.toString(
+                16
+            )}, position=${this.position.toString()},
+            data=..., len=${this.data.byteLength}"`
+        );
+    }
+
+    payload(): Uint8Array {
+        const buffer = new ArrayBuffer(5);
+        const view = new DataView(buffer);
+        view.setUint8(0, this.handle);
+        view.setUint32(1, this.position, true);
+        const uint8 = this.view2uint8(view);
+        return new Uint8Array([...uint8, ...this.data]);
+    }
+
+    getTypeCode(): number {
+        return MessageTypes.FILE_WRITE;
+    }
+
+    getTypeCodeAnswer(): number {
+        return MessageTypes.FILE_WRITE_RESPONSE;
+    }
+
+    static fromPayload(payload: Uint8Array, dst: number, src: number): FileWrite {
+        const handle = payload[0];
+        const dataView = new DataView(payload.buffer, 1, 4);
+        const position = dataView.getUint32(0, true);
+        const data = payload.slice(5);
+        return new FileWrite(handle, position, data, dst, src);
+    }
+}
+
+export class FileWriteResponse extends Message {
+    constructor(
+        public readonly errorCode: number,
+        public readonly handle: number,
+        public readonly position: number,
+        public readonly length: number,
+        dst: number,
+        src: number
+    ) {
+        super(dst, src);
+    }
+
+    toString(): string {
+        if (this.errorCode !== FileError.OK) {
+            return super.bin2String(`"error=${FileErrorToString(this.errorCode)}"`);
+        } else {
+            return super.bin2String(
+                `"handle=0x${this.handle.toString(
+                    16
+                )}, position=${this.position.toString()}, 
+                length = ${this.length.toString()}"`
+            );
+        }
+    }
+
+    payload(): Uint8Array {
+        const buffer = new ArrayBuffer(10);
+        const view = new DataView(buffer);
+        view.setUint8(0, this.errorCode);
+        view.setUint8(1, this.handle);
+        view.setUint32(2, this.position, true);
+        view.setUint32(6, this.length, true);
+        return this.view2uint8(view);
+    }
+
+    getTypeCode(): number {
+        return MessageTypes.FILE_WRITE_RESPONSE;
+    }
+
+    static fromPayload(
+        payload: Uint8Array,
+        dst: number,
+        src: number
+    ): FileWriteResponse {
+        const errorCode = payload[0];
+        // Message.getMessageError(errorCode);
+        const handle = payload[1];
+        const dataView = new DataView(payload.buffer, 2);
+        const position = dataView.getUint32(0, true);
+        const length = dataView.getUint32(1, true);
+        return new FileWriteResponse(errorCode, handle, position, length, dst, src);
+    }
+}
+
+export class FileWriteNoAck extends FileWrite {
+    getTypeCode(): number {
+        return MessageTypes.FILE_WRITE_NO_ACK;
+    }
+
+    static fromPayload(payload: Uint8Array, dst: number, src: number): FileWriteNoAck {
+        const handle = payload[0];
+        const dataView = new DataView(payload.buffer, 1, 4);
+        const position = dataView.getUint32(0, true);
+        const data = payload.slice(5);
+        return new FileWriteNoAck(handle, position, data, dst, src);
+    }
+}
+
+export class FileWriteNoAckResponse extends FileWriteResponse {
+    getTypeCode(): number {
+        return MessageTypes.FILE_WRITE_NO_ACK_RESPONSE;
+    }
+
+    static fromPayload(
+        payload: Uint8Array,
+        dst: number,
+        src: number
+    ): FileWriteNoAckResponse {
+        const errorCode = payload[0];
+        // Message.getMessageError(errorCode);
+        const handle = payload[1];
+        const dataView = new DataView(payload.buffer, 2);
+        const position = dataView.getUint32(0, true);
+        const length = dataView.getUint32(1, true);
+        return new FileWriteNoAckResponse(
+            errorCode,
+            handle,
+            position,
+            length,
+            dst,
+            src
+        );
+    }
+}
+
+export class FileRead extends Message {
+    constructor(
+        public readonly handle: number,
+        public readonly position: number,
+        public readonly length: number,
+        dst = 0,
+        src = 0
+    ) {
+        super(dst, src);
+    }
+
+    toString(): string {
+        return super.bin2String(
+            `"handle=0x${this.handle.toString(
+                16
+            )}, position=${this.position.toString()},
+            len=${this.length.toString()}"`
+        );
+    }
+
+    payload(): Uint8Array {
+        const buffer = new ArrayBuffer(9);
+        const view = new DataView(buffer);
+        view.setUint8(0, this.handle);
+        view.setUint32(1, this.position, true);
+        view.setUint32(5, this.length, true);
+        return this.view2uint8(view);
+    }
+
+    getTypeCode(): number {
+        return MessageTypes.FILE_READ;
+    }
+
+    getTypeCodeAnswer(): number {
+        return MessageTypes.FILE_CONTENT;
+    }
+
+    static fromPayload(payload: Uint8Array, dst: number, src: number): FileRead {
+        const handle = payload[0];
+        const dataView = new DataView(payload.buffer, 1, 8);
+        const position = dataView.getUint32(0, true);
+        const length = dataView.getUint32(1, true);
+        return new FileRead(handle, position, length, dst, src);
+    }
+}
+
+export class FileContent extends Message {
+    constructor(
+        public readonly errorCode: number,
+        public readonly handle: number,
+        public readonly position: number,
+        public data: Uint8Array,
+        dst: number,
+        src: number
+    ) {
+        super(dst, src);
+    }
+
+    toString(): string {
+        if (this.errorCode !== FileError.OK) {
+            return super.bin2String(`"handle=0x${this.handle.toString(
+                16
+            )}, position=${this.position.toString()}, 
+            error=${FileErrorToString(this.errorCode)}"`);
+        } else {
+            return super.bin2String(
+                `"handle=0x${this.handle.toString(
+                    16
+                )}, position=${this.position.toString()}, 
+                data..., length = ${this.data.byteLength}"`
+            );
+        }
+    }
+
+    payload(): Uint8Array {
+        const buffer = new ArrayBuffer(6);
+        const view = new DataView(buffer);
+        view.setUint8(0, this.errorCode);
+        view.setUint8(1, this.handle);
+        view.setUint32(2, this.position, true);
+        const uint8 = this.view2uint8(view);
+        return new Uint8Array([...uint8, ...this.data]);
+    }
+
+    getTypeCode(): number {
+        return MessageTypes.FILE_CONTENT;
+    }
+
+    static fromPayload(payload: Uint8Array, dst: number, src: number): FileContent {
+        const errorCode = payload[0];
+        // Message.getMessageError(errorCode);
+        const handle = payload[1];
+        const dataView = new DataView(payload.buffer, 2, 4);
+        const position = dataView.getUint32(0, true);
+        const data = payload.slice(6);
+        return new FileContent(errorCode, handle, position, data, dst, src);
+    }
+}
+
+
 export class MessageError extends Error {
     //Base class for message decoding errors
     constructor(message: string) {
