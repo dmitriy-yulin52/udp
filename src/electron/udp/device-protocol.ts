@@ -102,7 +102,7 @@ export class DeviceProtocol {
 
     private async getConfig(): Promise<string | null> {
         try {
-            const contentResponse = this.smartFileTransferManager &&await this.smartFileTransferManager.readFile(
+            const contentResponse = this.smartFileTransferManager && await this.smartFileTransferManager.readFile(
                 'config.txt'
             );
             const content = contentResponse;
