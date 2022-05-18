@@ -1,5 +1,129 @@
+import { Action } from "redux";
+import { Capability } from "../../react/capability/device-capability";
+import { Z3KConfig } from "../../react/z3kConfig/z3kConfig";
+import { ListenerState } from "./listener-state";
+import { MessageTransport } from "./message-transport";
+import { TextMessage } from "./oldmessages";
+import { ResponseHandler } from "./response-handler";
 
-export class DeviceProtocol {}
+export class DeviceProtocol {
+    private readonly responseHandler: ResponseHandler;
+    listenerState: any;
+    // private smartFileTransferManager: SmartFileTransferManager;
+    // private listenerState: ListenerState;
+
+    constructor(
+        public readonly dispatch: (action: Action) => Action,
+        public readonly counterId: number,
+        public readonly serial: string,
+        public readonly transport: MessageTransport,
+        public config?: Z3KConfig
+    ) {
+        this.responseHandler = new ResponseHandler(this.transport);
+        this.smartFileTransferManager = new SmartFileTransferManager(
+            this.responseHandler,
+            this.transport,
+            this.dispatch
+        );
+
+        // this.config = await this.getConfig();
+        // this.getConfig().then();
+        // this.askVersion().then();
+        // this.goToReducer().then();
+        // this.getAllState().then();
+
+        this.initialConfigAndState()
+            .then()
+            .catch((err) => console.log(err, 'initialConfigAndStateERR'));
+    }
+
+    private async goToReducer() {
+        const devVersion = await this.askVersion();
+
+        const match = /^#S7=([0-9A-Za-z+]*)\s([0-9]*)\s([0-9]*)/.exec(
+            devVersion.message.trim()
+        );
+        console.log(match, 'devVersion');
+        if (match) {
+            const [_, model, hw, fw] = match;
+
+            const dev: any = {
+                id: this.counterId,
+                serial: this.serial,
+                device_type: {
+                    code: model,
+                    name: CodeToName[model] ?? model,
+                },
+                hardware_type: {
+                    code: hw,
+                    name: hw,
+                },
+                firmware_version: [+fw],
+                z3k_config: this.config,
+                z3k_state: this.listenerState.state,
+                capabilities: [
+                    Capability.has_z3k_settings,
+                    Capability.has_voltage_sensor,
+                    Capability.has_wifi,
+                ],
+                online: true,
+                user_id: null,
+                sim_in_device: null,
+                filetransfers: [],
+                // ethernet_state: {} as Partial<EthernetState>,
+                // filetransfers: [] as Partial<FileTransfer>[],
+            };
+        }
+    }
+
+    private async initialConfigAndState() {
+        this.config = (await this.getConfig()) as Z3KConfig;
+        this.listenerState = new ListenerState(
+            this.dispatch,
+            this.counterId,
+            this.responseHandler,
+            this.transport,
+            this.config ?? ({} as Z3KConfig)
+        );
+        await this.goToReducer();
+    }
+
+    
+    async getConfig() {
+        console.log('Get Config Start');
+        const contentResponse = await this.smartResponseHandler.fileTransfer(
+            'config.txt',
+            FileContent
+        );
+        console.log('Get Config: ', contentResponse.data);
+        const content = contentResponse.data;
+        const decoder = new TextDecoder('windows-1251', {fatal: true});
+        const contentText = decoder.decode(content);
+        console.log('CONTENT TEXT', contentText);
+        return {};
+        // return configDictFromText(contentText);
+    }
+
+
+   
+
+    public async sendTextWithResponse(text: string): Promise<TextMessage> {
+        return await this.responseHandler.sendWithResponse(
+            new TextMessage(text),
+            TextMessage
+        );
+    }
+
+    private async askVersion(): Promise<TextMessage> {
+        const response = await this.responseHandler.sendWithResponse(
+            new TextMessage('#S7?'),
+            TextMessage
+        );
+        return response;
+    }
+
+   
+}
 
 const CodeToName: Record<string, string | undefined> = {
   SX250: "Mega SX-LRW",

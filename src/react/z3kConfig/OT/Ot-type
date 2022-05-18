@@ -1,0 +1,246 @@
+export type OT_Value = readonly [number, number]; //[whole, remains]
+
+export enum OTStatusFlag {
+    f = 'f',
+    ch = 'ch',
+    dhw = 'dhw',
+    fl = 'fl',
+    cl = 'cl',
+    ch2 = 'ch2',
+    di = 'di',
+}
+
+export enum OTFaultFlag {
+    sr = 'sr',
+    lr = 'lr',
+    wp = 'wp',
+    gf = 'gf',
+    ap = 'ap',
+    wot = 'wot',
+}
+
+export enum OTSlaveConfigurationFlag {
+    dhw = 'dhw',
+    ct = 'ct',
+    cc = 'cc',
+    dhwc = 'dhwc',
+    mpf = 'mpf',
+    ch2 = 'ch2',
+}
+
+export enum RemoteOverrideFlag {
+    mcp = 'mcp',
+    pcp = 'pcp',
+}
+
+export interface OTFaultState {
+    f: readonly OTFaultFlag[]; // fault flags
+    c: number; // OEM fault code
+}
+
+export interface OTSlaveConfigState {
+    f: readonly OTSlaveConfigurationFlag[]; // fault flags
+    m: number;
+}
+
+export interface MaxBoilerCapacityMinModLevel {
+    bc: number;
+    mml: number;
+}
+export enum OT_VarName {
+    s = 's',
+    cs = 'cs',
+    ff = 'ff',
+    rbp = 'rbp',
+    cs2 = 'cs2',
+    odc = 'odc',
+    sc = 'sc',
+    mv = 'mv',
+    sv = 'sv',
+    rp = 'rp',
+    rml = 'rml',
+    wp = 'wp',
+    fr = 'fr',
+    rsp2 = 'rsp2',
+    rt = 'rt',
+    bt = 'bt',
+    dt = 'dt',
+    ot = 'ot',
+    rwt = 'rwt',
+    sst = 'sst',
+    sct = 'sct',
+    ft2 = 'ft2',
+    dt2 = 'dt2',
+    et = 'et',
+    bs = 'bs',
+    ps = 'ps',
+    dps = 'dps',
+    dbs = 'dbs',
+    bh = 'bh',
+    ph = 'ph',
+    dph = 'dph',
+    dbh = 'dbh',
+    db = 'db',
+    b = 'b',
+    mrml = 'mrml',
+    ds = 'ds',
+    ms = 'ms',
+    cc = 'cc',
+    bcml = 'bcml',
+    rors = 'rors',
+    rof = 'rof',
+}
+export const OT_ID: Record<OT_VarName, number> = {
+    [OT_VarName.s]: 0,
+    [OT_VarName.cs]: 1,
+    [OT_VarName.ff]: 5,
+    [OT_VarName.rbp]: 6,
+    [OT_VarName.cs2]: 8,
+    [OT_VarName.odc]: 115,
+    [OT_VarName.sc]: 3,
+    [OT_VarName.mv]: 126,
+    [OT_VarName.sv]: 127,
+    [OT_VarName.rp]: 16,
+    [OT_VarName.rml]: 17,
+    [OT_VarName.wp]: 18,
+    [OT_VarName.fr]: 19,
+    [OT_VarName.rsp2]: 23,
+    [OT_VarName.rt]: 24,
+    [OT_VarName.bt]: 25,
+    [OT_VarName.dt]: 26,
+    [OT_VarName.ot]: 27,
+    [OT_VarName.rwt]: 28,
+    [OT_VarName.sst]: 29,
+    [OT_VarName.sct]: 30,
+    [OT_VarName.ft2]: 31,
+    [OT_VarName.dt2]: 32,
+    [OT_VarName.et]: 33,
+    [OT_VarName.bs]: 116,
+    [OT_VarName.ps]: 117,
+    [OT_VarName.dps]: 118,
+    [OT_VarName.dbs]: 119,
+    [OT_VarName.bh]: 120,
+    [OT_VarName.ph]: 121,
+    [OT_VarName.dph]: 122,
+    [OT_VarName.dbh]: 123,
+    [OT_VarName.db]: 48,
+    [OT_VarName.b]: 49,
+    [OT_VarName.mrml]: 14,
+    [OT_VarName.bcml]: 15,
+    [OT_VarName.ds]: 56,
+    [OT_VarName.ms]: 57,
+    [OT_VarName.cc]: 7,
+    [OT_VarName.rors]: 9,
+    [OT_VarName.rof]: 100,
+} as const;
+
+export interface OpenThermState {
+    [OT_VarName.s]?: readonly OTStatusFlag[];
+    [OT_VarName.cs]?: number; // Control Setpoint
+    [OT_VarName.ff]?: OTFaultState; // Fault flags
+    [OT_VarName.rbp]?: OT_Value; // Remote Boiler Parameters. Used for BSB boilers.
+    [OT_VarName.cs2]?: number; // Control Setpoint 2
+    [OT_VarName.odc]?: OT_Value; //OEM diagnostic code
+
+    [OT_VarName.sc]?: OTSlaveConfigState; //boiler configuration
+    [OT_VarName.mv]?: OT_Value; //master version
+    [OT_VarName.sv]?: OT_Value; //boiler version
+
+    [OT_VarName.rp]?: number; //Room setpoint
+    [OT_VarName.rml]?: number; // Relative modulation level
+    [OT_VarName.wp]?: number; // Water pressure
+    [OT_VarName.fr]?: number; // DHW speed
+    [OT_VarName.rsp2]?: number; //Room setpoint 2
+    [OT_VarName.rt]?: number; //Room temperature
+    [OT_VarName.bt]?: number; // Boiler water temperature
+    [OT_VarName.dt]?: number; // DHW temperature
+    [OT_VarName.ot]?: number | null; // Outside temperature
+    [OT_VarName.rwt]?: number; // Return water temperature
+    [OT_VarName.sst]?: number; // Solar storage temperature
+    [OT_VarName.sct]?: number; // Solar collector temperature
+    [OT_VarName.ft2]?: number; // Flow temperature CH2
+    [OT_VarName.dt2]?: number; // DHW2 temperature
+    [OT_VarName.et]?: number; // Exhaust temperature
+    [OT_VarName.bs]?: number; // Burner starts
+    [OT_VarName.ps]?: number; // CH pump starts
+    [OT_VarName.dps]?: number; // DHW pump/valve starts
+    [OT_VarName.dbs]?: number; // DHW burder starts
+    [OT_VarName.bh]?: number; // Burner operation hours
+    [OT_VarName.ph]?: number; // CH pump operation hours
+    [OT_VarName.dph]?: number; // DHW pump/valve operation hours
+    [OT_VarName.dbh]?: number; // DHW burner operation hours
+    [OT_VarName.db]?: OT_Value; //Bounds for adjustment of CH setpoint
+    [OT_VarName.b]?: OT_Value; //Bounds for adjustment of DHW setpoint
+    [OT_VarName.mrml]?: number; // Maximum relative modulation level
+    [OT_VarName.bcml]?: MaxBoilerCapacityMinModLevel; // Maximum boiler capacity & minimum modulation level
+    [OT_VarName.ds]?: number; // DHW setpoint
+    [OT_VarName.ms]?: number; // max CH water setpoint
+    [OT_VarName.cc]?: number; // Cooling control signal
+    [OT_VarName.rors]?: number | null; //Remote override room setpoint
+    [OT_VarName.rof]?: RemoteOverrideFlag[] | null; //Remote override function
+}
+
+export const OpenThermStateTranslate = {
+    [OT_VarName.s]: 'Status Flags',
+    [OT_VarName.cs]: 'Control Setpoint',
+    [OT_VarName.ff]: 'Fault flags',
+    [OT_VarName.rbp]: 'Remote Boiler Parameters. Used for BSB boilers.',
+    [OT_VarName.cs2]: 'Control Setpoint 2',
+    [OT_VarName.odc]: 'OEM diagnostic code',
+    [OT_VarName.sc]: 'boiler configuration',
+    [OT_VarName.mv]: 'master version',
+    [OT_VarName.sv]: 'boiler version',
+    [OT_VarName.rp]: 'Room setpoint',
+    [OT_VarName.rml]: 'Relative modulation level',
+    [OT_VarName.wp]: 'Water pressure',
+    [OT_VarName.fr]: 'DHW speed',
+    [OT_VarName.rsp2]: 'Room setpoint 2',
+    [OT_VarName.rt]: 'Room temperature',
+    [OT_VarName.bt]: 'Boiler water temperature',
+    [OT_VarName.dt]: 'DHW temperature',
+    [OT_VarName.ot]: 'Outside temperature',
+    [OT_VarName.rwt]: 'Return water temperature',
+    [OT_VarName.sst]: 'Solar storage temperature',
+    [OT_VarName.sct]: 'Solar collector temperature',
+    [OT_VarName.ft2]: 'Flow temperature CH2',
+    [OT_VarName.dt2]: 'DHW2 temperature',
+    [OT_VarName.et]: 'Exhaust temperature',
+    [OT_VarName.bs]: 'Burner starts',
+    [OT_VarName.ps]: 'CH pump starts',
+    [OT_VarName.dps]: 'DHW pump/valve starts',
+    [OT_VarName.dbs]: 'DHW burder starts',
+    [OT_VarName.bh]: 'Burner operation hours',
+    [OT_VarName.ph]: 'CH pump operation hours',
+    [OT_VarName.dph]: 'DHW pump/valve operation hours',
+    [OT_VarName.dbh]: 'DHW burner operation hours',
+    [OT_VarName.db]: 'Bounds for adjustment of CH setpoint',
+    [OT_VarName.b]: 'Bounds for adjustment of DHW setpoint',
+    [OT_VarName.mrml]: 'Maximum relative modulation level',
+    [OT_VarName.bcml]: 'Maximum boiler capacity & minimum modulation level',
+    [OT_VarName.ds]: 'DHW setpoint',
+    [OT_VarName.ms]: 'max CH water setpoint',
+    [OT_VarName.cc]: 'Cooling control signal',
+    [OT_VarName.rors]: 'Remote override room setpoint',
+    [OT_VarName.rof]: 'Remote override function',
+    [OTStatusFlag.f]: 'Fault indication',
+    [OTStatusFlag.ch]: 'Central Heating mode',
+    [OTStatusFlag.dhw]: 'DHW mode',
+    [OTStatusFlag.fl]: 'Flame on/off',
+    [OTStatusFlag.cl]: 'Cooling mode',
+    [OTStatusFlag.ch2]: 'Central Heating 2 mode',
+    [OTStatusFlag.di]: 'Diagnostic indication',
+    [OTFaultFlag.sr]: 'Service request',
+    [OTFaultFlag.lr]: 'Lockout-reset',
+    [OTFaultFlag.wp]: 'Low water pressure',
+    [OTFaultFlag.gf]: 'Gas/flame fault',
+    [OTFaultFlag.ap]: 'Air pressure fault',
+    [OTFaultFlag.wot]: 'Water over-temperature',
+    [OTSlaveConfigurationFlag.dhw]: 'DHW present',
+    [OTSlaveConfigurationFlag.ct]: 'Control type',
+    [OTSlaveConfigurationFlag.cc]: 'Cooling config',
+    [OTSlaveConfigurationFlag.dhwc]: 'DHW config',
+    [OTSlaveConfigurationFlag.mpf]: 'Master low-off & pump control function',
+    [OTSlaveConfigurationFlag.ch2]: 'CH2 present',
+    [RemoteOverrideFlag.mcp]: 'Manual change priority',
+    [RemoteOverrideFlag.pcp]: 'Program change priority',
+};

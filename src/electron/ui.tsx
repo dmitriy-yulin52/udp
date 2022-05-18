@@ -5,6 +5,7 @@ import { AppElectron } from './appElectron';
 import { DeviceServer } from './udp/device-server';
 import { DoubleSocket } from './udp/udp-socket';
 import thunkMiddleware from 'redux-thunk';
+import { fakeState } from './emulation-state';
 
 
 interface OfflineDevicesState {}
@@ -14,6 +15,14 @@ interface IDevicesUIWindow extends Window {
 }
 
 declare const win: IDevicesUIWindow;
+
+
+const billingReducer = (state = fakeState.billing) => state;
+const accountReducer = (state = fakeState.account) => state;
+const appSettingReducer = (state = fakeState.app_settings) => state;
+const terminalReducer = (state = fakeState.terminal) => state;
+const uiSettingsReducer = (state = fakeState.ui_settings) => state;
+const isOfflineReducer = (state = {isOffline: true}) => state;
 
 
 document.addEventListener('DOMContentLoaded', async () => {
