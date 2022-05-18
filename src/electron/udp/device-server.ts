@@ -1,4 +1,5 @@
 import { Action } from "redux";
+import { MutableMessageTransport } from "./message-transport";
 import { Message, TextMessage } from "./oldmessages";
 import { DoubleSocketType } from "./udp-socket";
 
@@ -10,7 +11,7 @@ export type DeviceDetected = {
     ip: string;
     time: Date;
     model: string;
-    // transport: MutableMessageTransport;
+    transport: MutableMessageTransport;
     // protocol: DeviceProtocol;
 };
 
