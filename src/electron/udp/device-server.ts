@@ -98,4 +98,62 @@ export class DeviceServer {
         state.transport.onMessage(msg);
       });
   };
+
+  async downloadFileZ3kConfig(dev_serial: string): Promise<Uint8Array | null> {
+    const found_device = Object.entries(this.detectionState).some(
+        ([serial, state]) => serial.toUpperCase() == dev_serial.toUpperCase()
+    );
+
+    if (found_device) {
+        const config = await this.detectionState[dev_serial].protocol.getFile();
+        return config;
+    }
+    return null;
 }
+
+async saveZ3kConfigInDevice(
+    dev_serial: string,
+    z3kConfig: Z3KConfig
+): Promise<void> {
+    const found_device = Object.entries(this.detectionState).some(
+        ([serial, state]) => serial.toUpperCase() == dev_serial.toUpperCase()
+    );
+
+    console.log(z3kConfig, 'saveZ3kConfig -device-server');
+    const z3kConfig_str = config2Str(z3kConfig);
+    const z3kConfig_uint8Array = iconv.encode(z3kConfig_str, 'win1251');
+
+    if (found_device) {
+        await this.detectionState[dev_serial].protocol.writeFile(
+            'config.txt',
+            z3kConfig_uint8Array
+        );
+    }
+}
+
+async send_z3k_command(
+    dev_serial: string,
+    command: Z3KCommand
+): Promise<string[] | null> {
+    const found_device = Object.entries(this.detectionState).some(
+        ([serial, state]) => serial.toUpperCase() == dev_serial.toUpperCase()
+    );
+
+    const text_command = command2text(command);
+
+    if (found_device) {
+        const promises = text_command.map((el) =>
+            this.detectionState[dev_serial].protocol.sendTextWithResponse(el)
+        );
+        const expected_promises = (await Promise.all(promises)).map(
+            (msg) => msg.message
+        );
+        return expected_promises;
+    } else {
+        return null;
+    }
+
+
+}
+
+

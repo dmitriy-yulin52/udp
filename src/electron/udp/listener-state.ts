@@ -12,7 +12,7 @@ export class ListenerState {
         readonly counterId: number,
         readonly responseHandler: ResponseHandler,
         readonly messageTransport: MessageTransport,
-        readonly config: Z3KConfig
+        readonly config: string
     ) {
         this.state = {};
         this.messageTransport.onMessageReceived(this.onMessage);

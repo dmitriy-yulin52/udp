@@ -3,21 +3,20 @@ import { Capability } from "../../react/capability/device-capability";
 import { Z3KConfig } from "../../react/z3kConfig/z3kConfig";
 import { ListenerState } from "./listener-state";
 import { MessageTransport } from "./message-transport";
-import { TextMessage } from "./oldmessages";
-import { ResponseHandler } from "./response-handler";
+import { FileContent, TextMessage } from "./oldmessages";
+import { ResponseHandler, SmartFileTransferManager } from "./response-handler";
 
 export class DeviceProtocol {
     private readonly responseHandler: ResponseHandler;
-    listenerState: any;
-    // private smartFileTransferManager: SmartFileTransferManager;
-    // private listenerState: ListenerState;
+    private smartFileTransferManager: SmartFileTransferManager | undefined;
+    private listenerState: ListenerState | undefined;
 
     constructor(
         public readonly dispatch: (action: Action) => Action,
         public readonly counterId: number,
         public readonly serial: string,
         public readonly transport: MessageTransport,
-        public config?: Z3KConfig
+        public config?: string
     ) {
         this.responseHandler = new ResponseHandler(this.transport);
         this.smartFileTransferManager = new SmartFileTransferManager(
@@ -60,7 +59,7 @@ export class DeviceProtocol {
                 },
                 firmware_version: [+fw],
                 z3k_config: this.config,
-                z3k_state: this.listenerState.state,
+                z3k_state: this.listenerState && this.listenerState.state,
                 capabilities: [
                     Capability.has_z3k_settings,
                     Capability.has_voltage_sensor,
@@ -77,35 +76,44 @@ export class DeviceProtocol {
     }
 
     private async initialConfigAndState() {
-        this.config = (await this.getConfig()) as Z3KConfig;
+        this.config = (await this.getConfig()) as string;
         this.listenerState = new ListenerState(
             this.dispatch,
             this.counterId,
             this.responseHandler,
             this.transport,
-            this.config ?? ({} as Z3KConfig)
+            this.config
         );
         await this.goToReducer();
     }
 
     
-    async getConfig() {
-        console.log('Get Config Start');
-        const contentResponse = await this.smartResponseHandler.fileTransfer(
-            'config.txt',
-            FileContent
-        );
-        console.log('Get Config: ', contentResponse.data);
-        const content = contentResponse.data;
-        const decoder = new TextDecoder('windows-1251', {fatal: true});
-        const contentText = decoder.decode(content);
-        console.log('CONTENT TEXT', contentText);
-        return {};
-        // return configDictFromText(contentText);
+    public async getFile(): Promise<Uint8Array | null> {
+
+        if(this.smartFileTransferManager){
+            const responseHandler: Uint8Array = await this.smartFileTransferManager.readFile(
+                'config.txt'
+            );
+            return responseHandler;
+        }
+        
+        return null;
     }
 
-
-   
+    private async getConfig(): Promise<string | null> {
+        try {
+            const contentResponse = this.smartFileTransferManager &&await this.smartFileTransferManager.readFile(
+                'config.txt'
+            );
+            const content = contentResponse;
+            const decoder = new TextDecoder('windows-1251', {fatal: true});
+            const contentText = decoder.decode(content);
+            return contentText;
+        } catch (error:any) {
+            throw Error('error')
+        }
+        return null;
+    }
 
     public async sendTextWithResponse(text: string): Promise<TextMessage> {
         return await this.responseHandler.sendWithResponse(
@@ -122,6 +130,17 @@ export class DeviceProtocol {
         return response;
     }
 
+    public async writeFile(fileName: string, data: Uint8Array): Promise<void> {
+        try {
+            const response = this.smartFileTransferManager && await this.smartFileTransferManager.writeFile(
+                fileName,
+                data
+            );
+            return response;
+        } catch (error) {
+            throw Error('error')
+        }
+    }
    
 }
 

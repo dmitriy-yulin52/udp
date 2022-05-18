@@ -379,4 +379,3 @@ function decodeRadiomodules(
         last_connect: content[2] as number,
     };
 }
-
