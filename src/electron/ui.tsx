@@ -1,14 +1,19 @@
 import * as React from 'react';
 import * as ReactDOM from 'react-dom';
-import { Action ,combineReducers,createStore,Dispatch, Store} from 'redux';
+import { Action ,applyMiddleware,combineReducers,createStore,Dispatch, Store} from 'redux';
 import { AppElectron } from './appElectron';
 import { DeviceServer } from './udp/device-server';
 import { DoubleSocket } from './udp/udp-socket';
+import thunkMiddleware from 'redux-thunk';
 
 
 interface OfflineDevicesState {}
 
+interface IDevicesUIWindow extends Window {
+    store: Store<OfflineDevicesState>;
+}
 
+declare const win: IDevicesUIWindow;
 
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -24,12 +29,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     const store: Store<OfflineDevicesState> = createStore(
         combineReducers({
           
-        })
+        }),applyMiddleware(thunkMiddleware.withExtraArgument({deviceServer}))
     );
-    window.store = store as any;
+    win.store = store as any;
     
     ReactDOM.render(
-                <AppElectron />
+                <AppElectron />,
         window.document.getElementById('root')
     );
 });
