@@ -57,7 +57,7 @@ export abstract class Message {
                 this.src,
                 payload.length + 1,
                 typeCode,
-                ...payload as any,
+                ...payload,
             ])
         );
         if (payload.length === 0) {
@@ -70,8 +70,8 @@ export abstract class Message {
             //
             payload.length + 1,
             typeCode,
-            ...payload as any,
-            ...crc as any, 
+            ...payload,
+            ...crc, 
         ]);
         // const address = new Uint8Array([this.src, this.dst]);
         // return new Uint8Array([...this.signature, this.src, this.dst]);
