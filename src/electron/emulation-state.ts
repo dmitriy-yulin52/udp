@@ -1604,4 +1604,4 @@ export const fakeState = {
             },
         ],
     },
-};
+}as const;

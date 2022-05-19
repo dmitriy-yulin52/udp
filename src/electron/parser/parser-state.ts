@@ -1,20 +1,26 @@
+import { DeepWritable } from 'ts-essentials';
+import { Z3KConfigArray_Key_Types } from '../../react/z3kConfig/auxiliary';
 import {
     AnalogDut,
     AnalogInput,
     AnalogOutput,
     AnalogTemperatureSensor,
     AnyObjectId,
+    DeviceInfo,
     DigitalDut,
     GuardZone,
     HeatingCircuit,
     HeatingMode,
+    PortRS485,
     Pump,
     RadioModule,
     RadioSensor,
     RadioSensor433,
     RelayControl,
+    ServiceContact,
     ThreewayTap,
     WebElement,
+    WiFi,
     WiredTemperatureSensor,
     Z3KConfig,
     Z3KObjectStateById,
@@ -379,3 +385,358 @@ function decodeRadiomodules(
         last_connect: content[2] as number,
     };
 }
+
+export function str2Config(text: string): Z3KConfig {
+    const config: DeepWritable<Partial<Z3KConfig>> = {};
+    const unknown = [];
+
+    const setting_by_id: Record<number, SettingLine | undefined> = {};
+    const counters: Record<number, number> = {};
+    for (const value of parseConfig(text)) {
+        if (value.parsed instanceof SettingLine) {
+            const setting_id: Z3KConfigSettingNumber = value.parsed.settingId;
+            if (!Z3KConfigSettingTypesNumber.includes(setting_id)) {
+                unknown.push(value.line);
+            }
+            setting_by_id[setting_id] = value.parsed;
+        } else if (value.parsed instanceof ObjectLine) {
+            const setting_name = z3k_object_id_by_field[
+                value.parsed.subtype
+            ] as Z3KConfigArray_Key_Types;
+            const serializer = Z3KAnyObjectSpec[setting_name] || null;
+            if (serializer !== null) {
+                const obj = serializer.fromStr(
+                    value.parsed.objectId as AnyObjectId,
+                    value.parsed.args
+                );
+                const arr = config[setting_name];
+                if (arr == null) {
+                    //@ts-ignore
+                    config[setting_name] = [obj];
+                } else {
+                    //@ts-ignore
+                    arr.push(obj);
+                }
+            } else {
+                unknown.push(value.line);
+            }
+        } else if (value.parsed instanceof CounterLine) {
+            counters[value.parsed.author] = value.parsed.value;
+        } else if (value.parsed instanceof UnknownLine) {
+            unknown.push(value.parsed.content);
+        }
+    }
+
+    Object.entries(config).forEach(([key, value]) => {
+        if (Array.isArray(value)) {
+            value.sort((a: any, b: any) => {
+                const ap = a?.position ?? 0,
+                    bp = b?.position ?? 0;
+                if (ap === 0 && bp === 0) return 0;
+                if (ap === 0) return 1;
+                if (bp === 0) return -1;
+                return ap - bp;
+            });
+        }
+    });
+
+    return {
+        ...config,
+        counters: counters,
+        device: decodeS7(setting_by_id[Z3KConfigSettingNumber.device]),
+        gsm_settings: decodeGSM(
+            setting_by_id[Z3KConfigSettingNumber.gsm_settings],
+            setting_by_id[Z3KConfigSettingNumber.gsm_settings_notification]
+        ),
+        timezone: decodeTimeZone(setting_by_id[Z3KConfigSettingNumber.timezone]),
+        port_rs485: decodePort485(setting_by_id[Z3KConfigSettingNumber.port_rs485]),
+        servers: decodeServers(setting_by_id[Z3KConfigSettingNumber.servers]),
+        port: decodePort(setting_by_id[Z3KConfigSettingNumber.port]),
+        login: decodeLogin(setting_by_id[Z3KConfigSettingNumber.login]),
+        password: decodePassword(setting_by_id[Z3KConfigSettingNumber.login]),
+        apn: decodeAPN(setting_by_id[Z3KConfigSettingNumber.apn]),
+        usbpassword: decodeUsbPassword(
+            setting_by_id[Z3KConfigSettingNumber.usb_password]
+        ),
+        service_contact: decodeServiceContact(
+            setting_by_id[Z3KConfigSettingNumber.service_contact]
+        ),
+        wifi_settings: decodeWiFi(setting_by_id[Z3KConfigSettingNumber.wifi_settings]),
+        use_reserve_battery: decodeUseReserveBattery(
+            setting_by_id[Z3KConfigSettingNumber.use_reserve_battery]
+        ),
+        a300_diag_interface: decodeA300Interface(
+            setting_by_id[Z3KConfigSettingNumber.a300_diag_interface]
+        ),
+        a300_diag_available_params: decodeA300Params(
+            setting_by_id[Z3KConfigSettingNumber.a300_diag_available_params]
+        ),
+        stockconfig: decodeStockConfig(
+            setting_by_id[Z3KConfigSettingNumber.stock_config]
+        ),
+        server_settings: decodeServerSetting(
+            setting_by_id[Z3KConfigSettingNumber.server_settings]
+        ),
+        unknown: unknown,
+    };
+}
+export abstract class ConfigLine {
+    abstract toString(): string;
+}
+
+export enum Z3KConfigSettingNumber {
+    device = 7,
+    gsm_settings = 12,
+    timezone = 36,
+    port_rs485 = 124,
+    a300_diag_interface = 180,
+    a300_diag_available_params = 181,
+    servers = 200,
+    port = 201,
+    login = 202,
+    apn = 203,
+    usb_password = 204,
+    gsm_settings_notification = 206,
+    service_contact = 207,
+    wifi_settings = 208,
+    use_reserve_battery = 209,
+    stock_config = 211,
+    server_settings = 212,
+}
+
+
+export type StockConfig =
+    | {readonly id: null; readonly title?: null; readonly version?: null}
+    | {readonly id: number; readonly title: string; readonly version: string}
+    | {readonly id: undefined; readonly title: undefined; readonly version: undefined};
+
+export class SettingLine extends ConfigLine {
+    constructor(
+        public readonly settingId: Z3KConfigSettingNumber,
+        public readonly value: string
+    ) {
+        super();
+    }
+
+    toString(): string {
+        return `#S${this.settingId}=${this.value}`;
+    }
+}
+
+
+export function decodeA300Interface(line: SettingLine | undefined): number | undefined {
+    if (line == undefined) {
+        return undefined;
+    }
+    return Number(line.value);
+}
+
+export function decodeStockConfig(
+    line: SettingLine | undefined
+): StockConfig | undefined {
+    if (line == undefined) return undefined;
+    const params = decodeArguments(line.value);
+    if (params.length >= 3) {
+        return {
+            id: (params[0] as number) ?? null,
+            title: (params[1] as string) ?? null,
+            version: (params[2] as string) ?? null,
+        };
+    }
+    return undefined;
+}
+
+
+export function decodeUseReserveBattery(
+    line: SettingLine | undefined
+): boolean | undefined {
+    if (line == undefined) {
+        return undefined;
+    }
+    const params = decodeArguments(line.value);
+    return params[0] === 1;
+}
+
+
+export interface ServerSettings {
+    readonly show_control_devices_state: boolean;
+}
+
+export function decodeServerSetting(
+    line: SettingLine | undefined
+): ServerSettings | undefined {
+    if (line == undefined) {
+        return undefined;
+    }
+    const params = decodeArguments(line.value);
+    const flags = getValue(params, 0, 0) as number;
+
+    return {
+        show_control_devices_state: (flags & 0x01) != 0,
+    };
+}
+
+export const authorBits = (author_id: number): number => author_id << 12;
+
+export class CounterLine extends ConfigLine {
+    constructor(public readonly author: number, public readonly value: number) {
+        super();
+    }
+
+    toString(): string {
+        return `#Z${authorBits(this.author) | this.value}=*`;
+    }
+}
+
+export class UnknownLine extends ConfigLine {
+    constructor(public readonly content: string) {
+        super();
+    }
+
+    toString(): string {
+        return `${this.content}`;
+    }
+}
+
+export class Z3KConfigParserError extends Error {}
+
+function getParams(line: SettingLine): string[] {
+    return line.value.split(' ');
+}
+export function decodeS7(line: SettingLine | undefined): DeviceInfo {
+    if (line == null) {
+        throw new Z3KConfigParserError('Device Info Undefined');
+    }
+    const params = getParams(line);
+    return {
+        name: params[0],
+        hardware: params[1],
+        firmware: params[2],
+    };
+}
+
+export function decodeA300Params(line: SettingLine | undefined): number | undefined {
+    if (line == undefined) {
+        return undefined;
+    }
+    return Number(line.value);
+}
+
+export function decodeWiFi(line: SettingLine | undefined): WiFi | undefined {
+    if (line == undefined) {
+        return undefined;
+    }
+    const params = decodeArguments(line.value);
+    return {
+        netname: params[0] as string,
+        pass: params[1] as string,
+        is_enabled: params[2] > 0,
+    };
+}
+
+export function decodeServiceContact(
+    line: SettingLine | undefined
+): ServiceContact | undefined {
+    if (line == undefined) {
+        return undefined;
+    }
+    const params = getParams(line);
+    const intDate = Number(params[1]);
+    const date =
+        intDate === 0
+            ? null
+            : {
+                  year: 2000 + (intDate >> 9),
+                  month: (intDate >> 5) & 0xf,
+                  day: intDate & 0x1f,
+              };
+    return {
+        phone: params[0],
+        date: date,
+    };
+}
+
+export function decodeUsbPassword(line: SettingLine | undefined): string | undefined {
+    if (line == undefined) {
+        return undefined;
+    }
+    return line.value;
+}
+
+export function decodeAPN(line: SettingLine | undefined): string | undefined {
+    if (line == undefined) {
+        return undefined;
+    }
+    return line.value;
+}
+
+export function decodePassword(line: SettingLine | undefined): string | undefined {
+    if (line == undefined) {
+        return undefined;
+    }
+    const params = getParams(line);
+    return params[1];
+}
+
+
+export function decodeLogin(line: SettingLine | undefined): string {
+    if (line == null) {
+        throw new Z3KConfigParserError('Login Undefined');
+    }
+    const params = getParams(line);
+    return params[0];
+}
+
+
+export function decodeTimeZone(line: SettingLine | undefined): number {
+    if (line == null) {
+        throw new Z3KConfigParserError('Time Zone Undefined');
+    }
+    return Number(line.value);
+}
+
+export function decodeServers(line: SettingLine | undefined): string | undefined {
+    if (line == undefined) {
+        return undefined;
+    }
+    return line.value;
+}
+
+export function decodePort(line: SettingLine | undefined): number {
+    if (line == undefined) {
+        return 52200;
+    }
+    return Number(line.value);
+}
+
+
+export function decodePort485(line: SettingLine | undefined): PortRS485 | undefined {
+    if (line == undefined) {
+        return undefined;
+    }
+    const params = decodeArguments(line.value);
+    return {
+        setting_register: Number(params[0]),
+        speed: Number(params[1]),
+        stop_byte_count: Number(params[2]),
+        parity_check: Number(params[3]),
+    };
+}
+
+
+export function decodeGSM(
+    line1: SettingLine | undefined,
+    line2: SettingLine | undefined
+): GSMSettings | undefined {
+    if (line1 == undefined) {
+        return undefined;
+    }
+    const params = getParams(line1);
+    return {
+        ussd: params[0],
+        threshold: Number(params[1]),
+        notification:
+            Number(line2?.value) === 0 ? null : (Number(line2?.value) as ObjectId<3>),
+    };
+}
+

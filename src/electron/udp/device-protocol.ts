@@ -16,7 +16,7 @@ export class DeviceProtocol {
         public readonly counterId: number,
         public readonly serial: string,
         public readonly transport: MessageTransport,
-        public config?: string
+        public config?: Z3KConfig
     ) {
         this.responseHandler = new ResponseHandler(this.transport);
         this.smartFileTransferManager = new SmartFileTransferManager(
@@ -76,7 +76,7 @@ export class DeviceProtocol {
     }
 
     private async initialConfigAndState() {
-        this.config = (await this.getConfig()) as string;
+        this.config = (await this.getConfig());
         this.listenerState = new ListenerState(
             this.dispatch,
             this.counterId,
@@ -100,7 +100,7 @@ export class DeviceProtocol {
         return null;
     }
 
-    private async getConfig(): Promise<string | null> {
+    private async getConfig(): Promise<Z3KConfig | null> {
         try {
             const contentResponse = this.smartFileTransferManager && await this.smartFileTransferManager.readFile(
                 'config.txt'
@@ -108,6 +108,7 @@ export class DeviceProtocol {
             const content = contentResponse;
             const decoder = new TextDecoder('windows-1251', {fatal: true});
             const contentText = decoder.decode(content);
+            const config = str2Config(contentText);
             return contentText;
         } catch (error:any) {
             throw Error('error')

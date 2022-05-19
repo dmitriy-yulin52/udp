@@ -1,6 +1,7 @@
 import { Reducer } from "redux";
+import { fakeState } from "../../../electron/emulation-state";
 import { Capability } from "../../capability/device-capability";
-import { object2id } from "../../z3kConfig/z3kConfig";
+import { UpgradeOfflineDeviceActions } from "./actions";
 
 interface DeviceType {
   code: string;
@@ -44,13 +45,16 @@ type Device = {
     ];
   };
   server_notifications: {
-    events: {enabled: boolean},
-    offline: {enabled: boolean, timeout: number},
-},
+    events: { enabled: boolean };
+    offline: { enabled: boolean; timeout: number };
+  };
 };
 
+//@ts-ignore
+type EmulationDevice = ReturnType<typeof fakeState.r_device>;
+
 export type OfflineDevice = Pick<
-Device,
+  EmulationDevice,
   | "id"
   | "serial"
   | "device_type"
